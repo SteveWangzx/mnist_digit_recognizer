@@ -44,7 +44,7 @@ public:
 				//权重初始化为随机数[-0.5, 0.5]
 				w[n * this->sizeInput + i] = w_neu(eng_neu);
 				//权重梯度初始化为随机数[-0.1, 0.1]
-				dw[n * this->sizeInput + i] = b_neu(eng_neu);
+				dw[n * this->sizeInput + i] = 0.0f;
 			}
 
 			//偏置初始化为0
@@ -97,7 +97,7 @@ public:
 			y[n] += b[n]; //加偏置
 		}
 
-		////激活
+		//激活
 		//switch (actvType)
 		//{
 		//case Actv::RELU:
@@ -120,7 +120,7 @@ public:
 	/// @brief 向后传播
 	void Backward()
 	{
-		////反激活
+		//反激活
 		//switch (actvType)
 		//{
 		//case Actv::RELU:
@@ -195,24 +195,24 @@ public:
 	}
 
 private:
-	//float sigmoid(float x)
-	//{
-	//	return 1.0f / (1.0f + expf(-x));
-	//}
-	//float sigmoid_gd(float y)
-	//{
-	//	return y * (1.0f - y);
-	//}
-	//float relu(float x)
-	//{
-	//	if (x > 0) { return x; }
-	//	else { return 0.0f; }
-	//}
-	//float relu_gd(float y /*严格来说，应该输入x*/)
-	//{
-	//	if (y > 0) { return 1.0f; }
-	//	else { return 0.0f; }
-	//}
+	float sigmoid(float x)
+	{
+		return 1.0f / (1.0f + expf(-x));
+	}
+	float sigmoid_gd(float y)
+	{
+		return y * (1.0f - y);
+	}
+	float relu(float x)
+	{
+		if (x > 0) { return x; }
+		else { return 0.0f; }
+	}
+	float relu_gd(float y /*严格来说，应该输入x*/)
+	{
+		if (y > 0) { return 1.0f; }
+		else { return 0.0f; }
+	}
 
 private:
 	int sizeInput;					// 输入size

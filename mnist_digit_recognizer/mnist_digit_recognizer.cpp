@@ -86,7 +86,7 @@ int main()
 
 			// 第三层
 			///////////////////////////////////////
-			graph[2].SetX(actvFirst.getOutput());
+			graph[2].SetX(actvSecond.getOutput());
 			graph[2].Forward();
 			actvOut.setInput(graph[2].GetY());
 			actvOut.forward_compute();
@@ -154,7 +154,7 @@ int main()
 			// backward
 			actvOut.setDactv(loss);
 			actvOut.backward_compute();
-			graph[2].SetDY(actvOut.getDactv());
+ 			graph[2].SetDY(actvOut.getDactv());
 			graph[2].Backward();
 
 			actvSecond.setDactv(graph[2].GetDX());
