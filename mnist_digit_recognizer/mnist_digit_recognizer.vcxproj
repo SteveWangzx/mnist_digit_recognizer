@@ -131,6 +131,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="actvLayer.hpp" />
+    <ClInclude Include="convLayer.hpp" />
     <ClInclude Include="dataCollector.hpp" />
     <ClInclude Include="fcLayer.hpp" />
   </ItemGroup>

@@ -15,6 +15,7 @@
 #include "dataCollector.hpp"
 #include "fcLayer.hpp"
 #include "actvLayer.hpp"
+#include "convLayer.hpp"
 
 const int SIZE_TRAIN = 33600;
 const int SIZE_TEST = 8400;
@@ -214,15 +215,31 @@ int main()
 			test_input.push_back(curr.x[i]);
 		}
 
+		// 第一层
+		///////////////////////////////////
+		// linear compute
 		graph[0].SetX(test_input);
 		graph[0].Forward();
-		for (int idx = 1; idx < graphSize; ++idx)
-		{
-			graph[idx].SetX(graph[idx - 1].GetY());
-			graph[idx].Forward();
-		}
+		// activation: RELU
+		actvFirst.setInput(graph[0].GetY());
+		actvFirst.forward_compute();
 
-		vector<float> result = graph[graphSize - 1].GetY();
+		// 第二层
+		/////////////////////////////////////
+		graph[1].SetX(actvFirst.getOutput());
+		graph[1].Forward();
+		actvSecond.setInput(graph[1].GetY());
+		actvSecond.forward_compute();
+
+		// 第三层
+		///////////////////////////////////////
+		graph[2].SetX(actvFirst.getOutput());
+		graph[2].Forward();
+		actvOut.setInput(graph[2].GetY());
+		actvOut.forward_compute();
+
+		vector<float> result = actvOut.getOutput();
+
 		int predict = 0;
 		float currMax = 0.0f;
 

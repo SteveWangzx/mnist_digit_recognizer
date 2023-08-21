@@ -195,24 +195,24 @@ public:
 	}
 
 private:
-	float sigmoid(float x)
-	{
-		return 1.0f / (1.0f + expf(-x));
-	}
-	float sigmoid_gd(float y)
-	{
-		return y * (1.0f - y);
-	}
-	float relu(float x)
-	{
-		if (x > 0) { return x; }
-		else { return 0.0f; }
-	}
-	float relu_gd(float y /*严格来说，应该输入x*/)
-	{
-		if (y > 0) { return 1.0f; }
-		else { return 0.0f; }
-	}
+	//float sigmoid(float x)
+	//{
+	//	return 1.0f / (1.0f + expf(-x));
+	//}
+	//float sigmoid_gd(float y)
+	//{
+	//	return y * (1.0f - y);
+	//}
+	//float relu(float x)
+	//{
+	//	if (x > 0) { return x; }
+	//	else { return 0.0f; }
+	//}
+	//float relu_gd(float y /*严格来说，应该输入x*/)
+	//{
+	//	if (y > 0) { return 1.0f; }
+	//	else { return 0.0f; }
+	//}
 
 private:
 	int sizeInput;					// 输入size
