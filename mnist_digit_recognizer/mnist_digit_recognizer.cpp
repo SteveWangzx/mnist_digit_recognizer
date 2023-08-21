@@ -233,7 +233,7 @@ int main()
 
 		// 第三层
 		///////////////////////////////////////
-		graph[2].SetX(actvFirst.getOutput());
+		graph[2].SetX(actvSecond.getOutput());
 		graph[2].Forward();
 		actvOut.setInput(graph[2].GetY());
 		actvOut.forward_compute();
