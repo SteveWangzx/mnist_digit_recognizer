@@ -287,8 +287,8 @@ int main()
 		3, 2, 1,
 	};
 	vector<float> loss = {
-	-3, -2, -1,
-	-3, -2, -1,
+	-2, -1,
+	-2, -1,
 	};
 
 	convLayer testConv(4, 4, 2, 3, 1, 0);
