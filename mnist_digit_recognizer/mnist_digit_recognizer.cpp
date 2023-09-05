@@ -277,28 +277,28 @@ int main()
 	//////////////////////////////////////
 
 	vector<float> convInput = {
-		1, 2, 3, 4,
-		1, 2, 3, 4,
-		1, 2, 3, 4,
-		1, 2, 3, 4
+		1, 2, 3,
+		4, 5, 6, 
+		7, 8, 9
 	};
 	vector<float> convFilter = {
-		3, 2, 1,
-		3, 2, 1,
+		1, 1, 1, 1,
+		2, 2, 2, 2,
+		3, 3, 3, 3
 	};
 	vector<float> loss = {
-	-3, -2, -1,
-	-3, -2, -1,
+	-2, -1,
+	-2, -1,
 	};
-
-	convLayer testConv(4, 4, 2, 3, 1, 0);
-	testConv.setX(convInput);
-	testConv.setW(convFilter);
-	testConv.forward();
-	testConv.printY();
-	testConv.setDY(loss);
-	testConv.backward();
-	testConv.getDX();
+	convLayer testim2col(3, 3, 2, 2, 1, 0);
+	testim2col.setX(convInput);
+	testim2col.im2col();
+	testim2col.print_Col();
+	testim2col.setFilters(convFilter);
+	testim2col.mat_mul();
+	testim2col.print_out();
+	testim2col.im2col_forward();
+	testim2col.print_out();
 
 	
 	//////////////////////////////////////

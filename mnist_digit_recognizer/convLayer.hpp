@@ -41,17 +41,45 @@ public:
 		db.resize(this->outputHeight * this->outputWidth);
 		dy.resize(this->outputHeight * this->outputWidth);
 
-		// 初始化
-		std::random_device rd_neu;
-		std::default_random_engine eng_neu(rd_neu());
-		std::uniform_real_distribution<float> w_neu(-0.5f, 0.5f);
-		std::uniform_real_distribution<float> b_neu(-0.1f, 0.1f);
+		// im2col 内存分配
+		//////////////////////////////////////////////////////////////
+		this->kernelSize = this->filterHeight * this->filterWidth;
+		this->ySize = this->outputHeight * this->outputWidth;
+		// Col
+		col.resize(kernelSize * ySize);
+		// 权重
+		filters.resize(this->filterNum * kernelSize);
+		// 偏置
+		biases.resize(kernelSize);
+		// 输出矩阵 - 包括多个feature map
+		outputMat.resize(filterNum * ySize);
 
+		// 初始化
+		std::random_device rd_conv;
+		std::default_random_engine eng_conv(rd_conv());
+		std::uniform_real_distribution<float> w_conv(-0.5f, 0.5f);
+		std::uniform_real_distribution<float> b_conv(-0.1f, 0.1f);
+		
+		// im2col初始化
+		for (int i = 0; i < filterNum; ++i)
+		{
+			for (int j = 0; j < kernelSize; ++j)
+			{
+				filters[i * kernelSize + j] = w_conv(eng_conv);
+			}
+		}
+		for (int i = 0; i < kernelSize; i++)
+		{
+			 biases[i] = b_conv(eng_conv);
+			//biases[i] = 0.0f;
+		}
+
+		////////////////////////////////////////
 		for (int i = 0; i < filterHeight; ++i)
 		{
 			for (int j = 0; j < filterWidth; ++j)
 			{
-				w[i * filterWidth + j] = w_neu(eng_neu);
+				w[i * filterWidth + j] = w_conv(eng_conv);
 				dw[i * filterWidth + j] = 0.0f;
 			}
 		}
@@ -74,6 +102,110 @@ public:
 		return temp;
 	}
 
+	// 将输入x根据filter转化为行列式
+	void im2col()
+	{	
+		// 根据stride遍历图像定位滑动窗口
+		int column = 0;	// 行列式col index
+		for (int outRow = 0; outRow < outputHeight; ++outRow)
+		{
+			for (int outCol = 0; outCol < outputWidth; ++outCol)
+			{
+				// 计算输入矩阵初始index
+				int startRow = outRow * stride;
+				int startCol = outCol * stride;
+
+				// 根据filter遍历滑动窗口
+				int row = 0;	// 行列式row index
+				for (int filterRow = 0; filterRow < filterHeight; filterRow++)
+				{
+					for (int filterCol = 0; filterCol < filterWidth; filterCol++)
+					{
+						// img index
+						int inputRow = startRow + filterRow;
+						int inputCol = startCol + filterCol;
+						
+						// 定位当前行列式index
+						if (inputCol < 0 || inputCol >= inputWidth || inputRow < 0 || inputRow >= inputHeight)
+						{
+							continue;
+						}else
+						{ 
+							col[row * ySize + column] = x[inputRow * inputHeight + inputCol];
+						}
+						++row;
+					}
+				}
+
+				++column;
+			}
+		}
+	}
+
+	// 矩阵乘法
+	// test for multiplication
+	// 卷积核权重filters * 行列式col
+	// output size = filtersRow * colWidth
+	void mat_mul()
+	{
+		// 遍历输出矩阵
+		for (size_t outRow = 0; outRow < filterNum; outRow++)
+		{
+			for (size_t outCol = 0; outCol < ySize; outCol++)
+			{
+				outputMat[outRow * ySize + outCol] = 0.0f;
+
+				for (size_t i = 0; i < kernelSize; i++)
+				{
+					outputMat[outRow * ySize + outCol] += filters[outRow * kernelSize + i]
+						* col[i * ySize + outCol];
+				}
+			}
+		}
+	}
+
+	void print_out()
+	{
+		std::cout << "Test mat mul:" << std::endl;
+		for (int row = 0; row < filterNum; ++row)
+		{
+			for (int col = 0; col < ySize; ++col)
+			{
+				std::cout << this->outputMat[row * ySize + col] << " ";
+			}
+			std::cout << std::endl;
+		}
+	}
+
+	void im2col_forward()
+	{
+		// 矩阵相乘 w * x
+		mat_mul();
+		
+		// 加入偏置
+		// 遍历输出矩阵
+		for (size_t outRow = 0; outRow < filterNum; outRow++)
+		{
+			for (size_t outCol = 0; outCol < ySize; outCol++)
+			{
+				outputMat[outRow * ySize + outCol] += biases[outRow];
+			}
+		}
+	}
+
+	void print_Col()
+	{
+		std::cout << "Test im2col:" << std::endl;
+		for (int row = 0; row < kernelSize; ++row)
+		{
+			for (int col = 0; col < ySize; ++col)
+			{
+				std::cout << this->col[row * ySize + col] << " ";
+			}
+			std::cout << std::endl;
+		}
+	}
+
 	void setX(vector<float> input)
 	{
 		this->x = input;
@@ -84,11 +216,18 @@ public:
 		return this->y;
 	}
 
-	// !!!only for test
+	// !!! only for test !!!
 	//////////////////////////////////
 	void setW(vector<float> weights)
 	{
 		this->w = weights;
+	}
+
+	// !!! only for test !!!
+	//////////////////////////////////
+	void setFilters(vector<float> filters)
+	{
+		this->filters = filters;
 	}
 
 	void setDY(vector<float> loss)
@@ -270,11 +409,19 @@ private:
 	int stride;
 	int padding;
 
+	int ySize;
+	int kernelSize;
+	int filterNum = 3;				// 默认卷积核个数
+
 	// Foward Parameters
 	vector<float> x;				// 输入vector - size = sizeInput
 	vector<float> y;				// 输出vector - size = sizeNeurals
 	vector<float> w;				// 权重vector - size = sizeInput * sizeNeurals
 	vector<float> b;				// 偏置vector - size = sizeNeurals
+	vector<float> filters;			// 权重矩阵 - 多个卷积核 size = kernelNum * kernelSize; 
+	vector<float> biases;			// 偏置向量 - size = kernelNum 
+	vector<float> col;				// im2col矩阵 - （kernelSize * ySize）
+	vector<float> outputMat;		// im2col输出矩阵 - (kernelNum * ySize)
 
 	// Backward Parameters ---- 偏导
 	vector<float> dx;

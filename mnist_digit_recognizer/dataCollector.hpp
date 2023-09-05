@@ -99,7 +99,7 @@ void dataCollector::dataHandler(std::vector<std::string>& words)
 // Select certain row of data to display 
 void dataCollector::peak(int row)
 {
-	std::cout << "第" << row << "项" << "数据展示: " << std::endl;
+	std::cout << "第" << row << "项" << "图片展示: " << std::endl;
 	std::cout << "label: " << samples[row].y << std::endl;
 	for (int i = 0; i < HEIGHT; ++i)
 	{
