@@ -134,6 +134,7 @@
     <ClInclude Include="convLayer.hpp" />
     <ClInclude Include="dataCollector.hpp" />
     <ClInclude Include="fcLayer.hpp" />
+    <ClInclude Include="gemm.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

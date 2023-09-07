@@ -16,6 +16,7 @@
 #include "fcLayer.hpp"
 #include "actvLayer.hpp"
 #include "convLayer.hpp"
+#include "gemm.hpp"
 
 const int SIZE_TRAIN = 33600;
 const int SIZE_TEST = 8400;
@@ -277,7 +278,7 @@ int main()
 	//////////////////////////////////////
 
 	vector<float> convInput = {
-		1, 2, 3,
+		1, 2, 3, 
 		4, 5, 6, 
 		7, 8, 9
 	};
@@ -287,20 +288,60 @@ int main()
 		3, 3, 3, 3
 	};
 	vector<float> loss = {
-	-2, -1,
-	-2, -1,
+	1, 1, 1, 1,
+	2, 2, 2, 2,
+	3, 3, 3, 3
 	};
-	convLayer testim2col(3, 3, 2, 2, 1, 0);
+	convLayer testim2col(3, 3, 1, 2, 2, 1, 0);
 	testim2col.setX(convInput);
 	testim2col.im2col();
 	testim2col.print_Col();
 	testim2col.setFilters(convFilter);
-	testim2col.mat_mul();
-	testim2col.print_out();
+	//testim2col.mat_mul();
+	//testim2col.print_out();
 	testim2col.im2col_forward();
 	testim2col.print_out();
+	//dim temp = testim2col.getOutputDim();
+	testim2col.setLoss(loss);
+	testim2col.im2col_backward();
+	testim2col.printDfilters();
+	testim2col.printDcol();
+	testim2col.printDbiases();
 
-	
+	//vector<float> y;
+	//y.resize(temp.height * temp.width * temp.channel * 4);
+
+	//im2col(convInput.data(), 1, 3, 3, 2, 2, 0, 0, 1, 1, 1, 1, y.data());
+
+	//vector<float> A = {
+	//	1, 2,
+	//	3, 4,
+	//	5, 6
+	//};
+
+	//vector<float> B = {
+	//	1, 4, 
+	//	2, 5, 
+	//	3, 6,
+	//};
+
+	//vector<float> C;
+	//C.resize(2 * 2);
+
+	//gemm(1, 0, 2, 2, 3, 1, A.data(), 2, B.data(), 2, 0, C.data(), 2);
+
+
+	//std::cout << "Test:" << std::endl;
+	//for (int row = 0; row < 2; ++row)
+	//{
+	//	for (int col = 0; col < 2; ++col)
+	//	{
+	//		std::cout << C[row * 2 + col] << " ";
+	//	}
+	//	std::cout << std::endl;
+	//}
+
+	// 数据处理
 	//////////////////////////////////////
 	std::cout << "收集训练集" << std::endl;
 	dataCollector train("./mnist_digit_train.csv");
@@ -309,18 +350,18 @@ int main()
 
 	// 建立卷积网络
 	// /////////////////////////////////
-	// 第一层	----	28 * 28 -> 12 * 12
-	convLayer first(28, 28, 5, 5, 2, 0);
+	// 第一层	----	1 * 28 * 28 -> 3 * 12 * 12
+	convLayer first(28, 28, 1, 5, 5, 2, 0);
 	dim firstDim = first.getOutputDim();
-	actvLayer firstActv(firstDim.height * firstDim.width, Actv::RELU);
+	actvLayer firstActv(firstDim.height * firstDim.width * firstDim.channel, Actv::RELU);
 
-	// 第二层    ----	12 * 12 -> 4 * 4
-	convLayer second(firstDim.width, firstDim.height, 5, 5, 2, 0);
+	// 第二层    ----	3 * 12 * 12 -> 3 * 4 * 4
+	convLayer second(firstDim.width, firstDim.height, firstDim.channel, 5, 5, 2, 0);
 	dim secondDim = second.getOutputDim();
-	actvLayer secondActv(secondDim.height * secondDim.width, Actv::RELU);
+	actvLayer secondActv(secondDim.height * secondDim.width * secondDim.channel, Actv::RELU);
 
-	// 第三层	----	16 -> 10	SIGMOID全连接输出层
-	fcLayer outLayer(secondDim.height * secondDim.width, 10, Actv::SIGMOID);
+	// 第三层	----	3 * 16 -> 10	SIGMOID全连接输出层
+	fcLayer outLayer(secondDim.height * secondDim.width * secondDim.channel, 10, Actv::SIGMOID);
 	actvLayer outActv(10, Actv::SIGMOID);
 
 	// random engine
@@ -351,13 +392,13 @@ int main()
 			// 
 			// 第一层
 			first.setX(input);
-			first.forward();
+			first.im2col_forward();
 			firstActv.setInput(first.getY());
 			firstActv.forward_compute();
 
 			// 第二层
 			second.setX(firstActv.getOutput());
-			second.forward();
+			second.im2col_forward();
 			secondActv.setInput(second.getY());
 			secondActv.forward_compute();
 		
@@ -399,13 +440,13 @@ int main()
 
 			secondActv.setDactv(outLayer.GetDX());
 			secondActv.backward_compute();
-			second.setDY(secondActv.getDactv());
-			second.backward();
+			second.setLoss(secondActv.getDactv());
+			second.im2col_backward();
 
-			firstActv.setDactv(second.getDX());
+			firstActv.setDactv(second.getDCol());
 			firstActv.backward_compute();
-			first.setDY(firstActv.getDactv());
-			first.backward();
+			first.setLoss(firstActv.getDactv());
+			first.im2col_backward();
 
 			{
 				lossList.push_back(avgLoss);
@@ -418,8 +459,8 @@ int main()
 			}
 		}
 
-		first.update();
-		second.update();
+		first.im2col_update();
+		second.im2col_update();
 		outLayer.Update();
 	}
 
@@ -447,13 +488,13 @@ int main()
 		// 
 		// 第一层
 		first.setX(test_input);
-		first.forward();
+		first.im2col_forward();
 		firstActv.setInput(first.getY());
 		firstActv.forward_compute();
 
 		// 第二层
 		second.setX(firstActv.getOutput());
-		second.forward();
+		second.im2col_forward();
 		secondActv.setInput(second.getY());
 		secondActv.forward_compute();
 

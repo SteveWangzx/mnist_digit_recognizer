@@ -1,21 +1,24 @@
 ﻿#ifndef _conv_layer__
 #define _conv_layer__
 
+#include "gemm.hpp"
+
 struct dim
 {
 	int width = 0;
 	int height = 0;
-	int tunnel = 0;
+	int channel = 1;
 };
 
 class convLayer
 {
 public:
 	convLayer()  = default;
-	convLayer(int inputWidth, int inputHeight, int filterWidth, int filterHeight, int stride, int padding)
+	convLayer(int inputWidth, int inputHeight, int inputChannel,int filterWidth, int filterHeight, int stride, int padding)
 	{
 		this->inputWidth = inputWidth;
 		this->inputHeight = inputHeight;
+		this->inputChannel = inputChannel;
 		this->filterHeight = filterHeight;
 		this->filterWidth = filterWidth;
 		this->stride = stride;
@@ -39,20 +42,25 @@ public:
 		dx.resize(this->inputWidth * this->inputHeight);
 		dw.resize(this->filterWidth * this->filterHeight);
 		db.resize(this->outputHeight * this->outputWidth);
-		dy.resize(this->outputHeight * this->outputWidth);
+		//dy.resize(this->outputHeight * this->outputWidth);
 
 		// im2col 内存分配
 		//////////////////////////////////////////////////////////////
 		this->kernelSize = this->filterHeight * this->filterWidth;
 		this->ySize = this->outputHeight * this->outputWidth;
 		// Col
-		col.resize(kernelSize * ySize);
+		col.resize(kernelSize * ySize * inputChannel);
+		dcol.resize(kernelSize * ySize * inputChannel);
 		// 权重
 		filters.resize(this->filterNum * kernelSize);
+		dfilters.resize(this->filterNum * kernelSize);
 		// 偏置
-		biases.resize(kernelSize);
+		biases.resize(filterNum);
+		dbiases.resize(filterNum);
 		// 输出矩阵 - 包括多个feature map
 		outputMat.resize(filterNum * ySize);
+		dy.resize(this->outputHeight * this->outputWidth);
+		loss.resize(filterNum * ySize);
 
 		// 初始化
 		std::random_device rd_conv;
@@ -68,10 +76,11 @@ public:
 				filters[i * kernelSize + j] = w_conv(eng_conv);
 			}
 		}
-		for (int i = 0; i < kernelSize; i++)
+		for (int i = 0; i < filterNum; i++)
 		{
-			 biases[i] = b_conv(eng_conv);
-			//biases[i] = 0.0f;
+			 //biases[i] = b_conv(eng_conv);
+			biases[i] = 0.0f;
+			dbiases[i] = 0.0f;
 		}
 
 		////////////////////////////////////////
@@ -88,7 +97,7 @@ public:
 		{
 			for (int j = 0; j < outputWidth; ++j) 
 			{
-				b[i * outputWidth + j] = 0.0f;
+				b[i * outputWidth + j] = b_conv(eng_conv);
 				db[i * outputWidth + j] = 0.0f;
 			}
 		}
@@ -99,11 +108,12 @@ public:
 		dim temp;
 		temp.width = outputWidth;
 		temp.height = outputHeight;
+		temp.channel = filterNum;
 		return temp;
 	}
 
 	// 将输入x根据filter转化为行列式
-	void im2col()
+	void im2col_noChannel()
 	{	
 		// 根据stride遍历图像定位滑动窗口
 		int column = 0;	// 行列式col index
@@ -142,6 +152,17 @@ public:
 		}
 	}
 
+	// im2col算法： 加入通道数
+	void im2col()
+	{
+		// 输入:x
+		// 输出:col
+		//////////////////////////////
+		gemm_im2col(x.data(), this->inputChannel, this->inputHeight, this->inputWidth,
+			this->filterHeight, this->filterWidth, 0, 0, this->stride, this->stride, 1, 1, this->col.data()
+		);
+	}
+
 	// 矩阵乘法
 	// test for multiplication
 	// 卷积核权重filters * 行列式col
@@ -177,13 +198,20 @@ public:
 		}
 	}
 
+	// im2col前向传播
 	void im2col_forward()
 	{
+		// 转化
+		im2col();
+
 		// 矩阵相乘 w * x
-		mat_mul();
+		// 矩阵A: 卷积核权重 filters - A.shape = M * K
+		// 矩阵B: im2col矩阵 col - B.shape = K * N 
+		// 矩阵C: 输出矩阵 outputMat - C.shape = M * N
+		gemm(0, 0, filterNum, ySize, kernelSize, 1, filters.data(), kernelSize, 
+			col.data(), ySize, 0, outputMat.data(), ySize);
 		
 		// 加入偏置
-		// 遍历输出矩阵
 		for (size_t outRow = 0; outRow < filterNum; outRow++)
 		{
 			for (size_t outCol = 0; outCol < ySize; outCol++)
@@ -191,6 +219,142 @@ public:
 				outputMat[outRow * ySize + outCol] += biases[outRow];
 			}
 		}
+	}
+
+	// im2col反向传播
+	void im2col_backward()
+	{
+		// 计算权重梯度 (y = w * x + b  w求偏导: dw = x)
+		// dw = dy * col(T)
+		// dw = filterNum * kernelSize
+		// dy = filterNum * ysize
+		// col = kernelSize * ySize	---- col^T = ySize * kernelSize;
+		gemm(0, 1, filterNum, kernelSize, ySize, 1, loss.data(), ySize, col.data(), ySize, 0, dfilters.data(), kernelSize);
+
+		// 计算偏置
+		// db = dy * [1, 1, 1.....]
+		// [1, 1, 1, ......] = filterNum * 1
+		// 遍历db
+		for (size_t i = 0; i < filterNum; i++)
+		{
+			// 遍历dy
+			for (size_t j = 0; j < ySize; j++)
+			{
+				dbiases[i] += loss[i * ySize + j] * 1.0f;
+			}
+		}
+
+		// 计算dx
+		// dx = w^T * dy
+		// w = filterNum * kernelSize
+		// dy = filterNum * ySize
+		// dx = kernelSize * ySize
+		gemm(1, 0, kernelSize, ySize, filterNum, 1, filters.data(), kernelSize, loss.data(), ySize, 0, dcol.data(), ySize);
+	}
+
+	void im2col_update()
+	{
+		// 更新参数
+		static const float LR = 0.001f; //学习率
+		static const float Momenteum = 0.9f; //动量(不是必须的)
+
+		// 更新权重
+		for (int row = 0; row < filterNum; row++)
+		{
+			for (int col = 0; col < kernelSize; col++)
+			{
+				filters[row * kernelSize + col] += dfilters[row * kernelSize + col] * LR;
+			}
+		}
+
+		// 更新偏置
+		for (int i = 0; i < filterNum; ++i)
+		{
+			biases[i] += dbiases[i] * LR;
+		}
+
+		// 动量策略
+		/////////////////////////////////////
+		for (int row = 0; row < filterNum; row++)
+		{
+			for (int col = 0; col < kernelSize; col++)
+			{
+				dfilters[row * kernelSize + col] *= Momenteum;
+			}
+		}
+
+		for (int i = 0; i < filterNum; ++i)
+		{
+			dbiases[i] *= Momenteum;
+		}
+	}
+
+	/// <!!!Test for im2col process>
+	// do not use these functions in training process
+	//////////////////////////////////////////////////////////
+	void setFilters(vector<float> filters)
+	{
+		this->filters = filters;
+	}
+
+	void printDfilters()
+	{
+		std::cout << "dw :" << std::endl;
+		for (int row = 0; row < filterNum; ++row)
+		{
+			for (int col = 0; col < kernelSize; ++col)
+			{
+				std::cout << dfilters[row * kernelSize + col] << " ";
+			}
+			std::cout << std::endl;
+		}
+	}
+
+	void printDbiases()
+	{
+		std::cout << "db :" << std::endl;
+		for (int i = 0; i < filterNum; ++i)
+		{
+				std::cout << dbiases[i] << " ";
+		}
+		std::cout << std::endl;
+	}
+
+	void printDcol()
+	{
+		std::cout << "dx :" << std::endl;
+		for (int row = 0; row < kernelSize * inputChannel; ++row)
+		{
+			for (int col = 0; col < filterNum; ++col)
+			{
+				std::cout << dcol[row * filterNum + col] << " ";
+			}
+			std::cout << std::endl;
+		}
+	}
+	//////////////////////////////////////////////////
+	/// </!!!Test for im2col process>
+
+	// functions for im2col backward
+	/////////////////////////////////////////////////////
+	void setLoss(vector<float> loss)
+	{
+		this->loss = loss;
+	}
+
+	vector<float> getDCol()
+	{
+		return this->dcol;
+	}
+	/////////////////////////////////////////////////////
+	void setX(vector<float> input)
+	{
+		this->x = input;
+	}
+
+	vector<float> getY()
+	{
+		return this->outputMat;
 	}
 
 	void print_Col()
@@ -205,29 +369,11 @@ public:
 			std::cout << std::endl;
 		}
 	}
-
-	void setX(vector<float> input)
-	{
-		this->x = input;
-	}
-
-	vector<float> getY()
-	{
-		return this->y;
-	}
-
 	// !!! only for test !!!
 	//////////////////////////////////
 	void setW(vector<float> weights)
 	{
 		this->w = weights;
-	}
-
-	// !!! only for test !!!
-	//////////////////////////////////
-	void setFilters(vector<float> filters)
-	{
-		this->filters = filters;
 	}
 
 	void setDY(vector<float> loss)
@@ -402,6 +548,7 @@ public:
 private:
 	int inputWidth;
 	int inputHeight;
+	int inputChannel;
 	int filterWidth;
 	int filterHeight;
 	int outputWidth;
@@ -413,7 +560,7 @@ private:
 	int kernelSize;
 	int filterNum = 3;				// 默认卷积核个数
 
-	// Foward Parameters
+	// Forward Parameters
 	vector<float> x;				// 输入vector - size = sizeInput
 	vector<float> y;				// 输出vector - size = sizeNeurals
 	vector<float> w;				// 权重vector - size = sizeInput * sizeNeurals
@@ -428,6 +575,10 @@ private:
 	vector<float> dw;
 	vector<float> db;
 	vector<float> dy;
+	vector<float> dfilters;			// size = filters
+	vector<float> dcol;
+	vector<float> dbiases;
+	vector<float> loss;
 };
 
 #endif // !_conv_layer__
