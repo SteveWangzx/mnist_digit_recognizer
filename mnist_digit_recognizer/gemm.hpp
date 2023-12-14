@@ -52,6 +52,45 @@ void gemm_im2col(
 	}
 }
 
+void gemm_col2im(
+	const float* x,		// 输入: col = kernelSize * ySize * channel
+	const int c, const int h, const int w, // 输出数据的通道/高/宽
+	const int kh, const int kw, //卷积核尺寸
+	const int ph, const int pw, //补边大小，无补边传参数0
+	const int sh, const int sw, //步长大小
+	const int dh, const int dw, //膨胀大小，无膨胀传参数1
+	float* y	// 输出: image
+)
+{
+	const int oh = (h + 2 * ph - (dh * (kh - 1) + 1)) / sh + 1;		// 计算输出大小
+	const int ow = (w + 2 * pw - (dw * (kw - 1) + 1)) / sw + 1;
+	const int icsize = h * w;
+	const int colSize = kh * kw * oh * ow;	// 一个channel的col大小： kernelSize * ySize
+
+	// image = c * h * w
+	int col_index = 0;
+	for (size_t channel = 0; channel < c; channel++)
+	{
+		for (size_t row = 0; row < oh; row++)
+		{
+			for (size_t col = 0; col < ow; col++)
+			{
+				for (size_t i = 0; i < kh; i++)
+				{
+					for (size_t j = 0; j < kw; j++)
+					{
+						int im_row = row * sh + i - ph;
+						int im_col = col * sw + j - pw;
+						if (im_row >= 0 && im_row < h && im_col >= 0 && im_col < w) {
+							y[channel * icsize + im_row * w + im_col] += x[col_index];
+						}
+						col_index++;
+					}
+				}
+			}
+		}
+	}
+}
 
 void gemm_nn(int M, int N, int K, float ALPHA,
 	float* A, int lda,

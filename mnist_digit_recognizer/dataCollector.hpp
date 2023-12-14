@@ -19,9 +19,19 @@ public:
 	{
 		this->path = path;
 	}
+	void addPath(const char* path)
+	{
+		this->path = path;
+	}
 	void collectData();
 	void peak(int row);
+	void split_train_test(float ration);
 	image getImage(int row);
+
+public:
+	int sampleSize = 0;
+	int trainSize = 0;
+	int testSize = 0;
 
 private:
 	void dataHandler(std::vector<std::string> &words);
@@ -72,6 +82,7 @@ void dataCollector::collectData()
 		printf("Collected %d rows of data\r", idx++);
 	}
 	printf("\n");
+	sampleSize = samples.size();
 	std::cout << "Collect Data Successfully!" << std::endl;
 	csvFile.close();
 }
@@ -109,6 +120,13 @@ void dataCollector::peak(int row)
 		}
 		std::cout << std::endl;
 	}
+}
+
+/* 分割数据集 ratio: 测试集占比 */
+void dataCollector::split_train_test(float ratio)
+{
+	testSize = sampleSize * ratio;
+	trainSize = sampleSize - testSize;
 }
 
 

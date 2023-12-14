@@ -35,5 +35,14 @@
     <ClInclude Include="gemm.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="softmaxLayer.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="layer.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Graph.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,4 +1,9 @@
-﻿/// 库
+﻿#ifndef _main_cpp__
+#define _main_cpp__
+
+
+/// 库
+#include "nvx.h"
 #include <iostream>
 #include <string>
 #include <windows.h>
@@ -10,6 +15,7 @@
 #include <algorithm>
 #include <ctime>
 #include <random>
+#include <filesystem>
 
 /// 头文件
 #include "dataCollector.hpp"
@@ -17,521 +23,87 @@
 #include "actvLayer.hpp"
 #include "convLayer.hpp"
 #include "gemm.hpp"
+#include "softmaxLayer.hpp"
+#include "layer.hpp"
+#include "Graph.hpp"
 
 const int SIZE_TRAIN = 33600;
 const int SIZE_TEST = 8400;
 // training parameters
 const int batch_size = 16;
+const int iterations = 40000;
 
 using std::vector;
 using std::list;
 
-void full_training()
-{
-	//////////////////////////////////////
-	std::cout << "收集训练集" << std::endl;
-	dataCollector train("./mnist_digit_train.csv");
-
-	train.collectData();
-
-	// 全连接网络
-	vector<fcLayer> graph;
-	// 第一层
-	graph.push_back(fcLayer(INPUT_SIZE, 30, Actv::RELU));
-	actvLayer actvFirst(30, Actv::RELU);
-	// 第二层
-	graph.push_back(fcLayer(30, 15, Actv::RELU));
-	actvLayer actvSecond(15, Actv::RELU);
-	// 第三层
-	graph.push_back(fcLayer(15, 10, Actv::SIGMOID));
-	actvLayer actvOut(10, Actv::SIGMOID);
-	const int graphSize = graph.size();
-
-
-	// random engine
-	std::random_device rd;
-	std::default_random_engine eng(rd());
-	std::uniform_int_distribution<int> u(0, SIZE_TRAIN - 1);
-
-	// train
-	list<float> lossList;
-	for (int itr = 0; itr < 10000; ++itr)
-	{
-		static float ecof = 0.00001f;
-		ecof += 0.002;
-		ecof = ecof > 1 ? 1 : ecof;
-		vector<image> samples;
-		for (int idx = 0; idx < batch_size; ++idx)
-		{
-			int row = u(eng);
-			image curr = train.getImage(row);
-			vector<float> input;
-			for (int i = 0; i < INPUT_SIZE; ++i)
-			{
-				input.push_back(curr.x[i]);
-			}
-
-			// 第一层
-			///////////////////////////////////
-			// linear compute
-			graph[0].SetX(input);
-			graph[0].Forward();
-			// activation: RELU
-			actvFirst.setInput(graph[0].GetY());
-			actvFirst.forward_compute();
-
-			// 第二层
-			/////////////////////////////////////
-			graph[1].SetX(actvFirst.getOutput());
-			graph[1].Forward();
-			actvSecond.setInput(graph[1].GetY());
-			actvSecond.forward_compute();
-
-			// 第三层
-			///////////////////////////////////////
-			graph[2].SetX(actvSecond.getOutput());
-			graph[2].Forward();
-			actvOut.setInput(graph[2].GetY());
-			actvOut.forward_compute();
-
-			// 输出
-			vector<float> output = actvOut.getOutput();
-			int label[10] = { 0 };
-			label[curr.y] = 1;
-			vector<float> loss;
-
-			//// softmax输出
-			//// softmax(x) = e^x / e
-			//float e_sum = 0.0f;
-			//for (int i = 0; i < output.size(); ++i)
-			//{
-			//	e_sum += expf(output[i]);
-			//}
-			//for (int i = 0; i < output.size(); ++i)
-			//{
-			//	output[i] = expf(output[i]) / e_sum;
-			//}
-
-			//// softmax loss
-			//float lossSum = 0.0f;
-			//for (int i = 0; i < output.size(); ++i)
-			//{
-			//	lossSum += label[i] * log(output[i]);
-			//}
-
-			//// loss计算
-			//for (int i = 0; i < 10; ++i)
-			//{
-			//	//loss.push_back(-(label[i] * log(output[i])));
-			//	loss.push_back(-lossSum / 10);
-			//}
-
-			//float avgLoss = fabs(-lossSum / 10);
-			//for (float data : loss)
-			//{
-			//	avgLoss += fabs(data);
-			//}
-			//avgLoss /= 10;
-			float avgLoss = 0.0f;
-			// 差值loss计算
-			for (int i = 0; i < output.size(); ++i)
-			{
-				if (label[i] == 1) {
-					loss.push_back((label[i] - output[i]));
-				}
-				else {
-
-					loss.push_back((label[i] - output[i]) * ecof);
-				}
-
-
-				if (label[i] == 1) { avgLoss = abs(label[i] - output[i]); }
-			}
-
-			/*for (float data : loss)
-			{
-				avgLoss += fabs(data);
-			}
-			avgLoss /= 10;*/
-
-			// backward
-			actvOut.setDactv(loss);
-			actvOut.backward_compute();
-			graph[2].SetDY(actvOut.getDactv());
-			graph[2].Backward();
-
-			actvSecond.setDactv(graph[2].GetDX());
-			actvSecond.backward_compute();
-			graph[1].SetDY(actvSecond.getDactv());
-			graph[1].Backward();
-
-			actvFirst.setDactv(graph[1].GetDX());
-			actvFirst.backward_compute();
-			graph[0].SetDY(actvFirst.getDactv());
-			graph[0].Backward();
-
-			// display avgrage loss for last 100 loss
-			{
-				lossList.push_back(avgLoss);
-				if (lossList.size() > 100) { lossList.pop_front(); }
-				float tloss = 0;
-				for (float l : lossList) { tloss += l; }
-				tloss /= lossList.size();
-				printf("Iterations %d, avgloss:%f\r", itr, tloss);
-				::Sleep(1);
-			}
-		}
-
-		// batch结束更新参数
-		for (int i = 0; i < graphSize; ++i)
-		{
-			graph[i].Update();
-		}
-
-		//vector<float> bias = graph[graphSize - 2].GetBias();
-		//printf("Bias: ");
-		//for (float bia : bias)
-		//{
-		//	printf("%f ", bia);
-		//}
-		//printf("\n");
-
-	}
-	std::cout << "Trained Complete!" << std::endl;
-
-	// 测试
-	////////////////////////////////////////////
-	std::cout << "Run test!" << std::endl;
-	std::cout << "收集测试集" << std::endl;
-	dataCollector test("./mnist_digit_test.csv");
-	test.collectData();
-	int correct = 0;
-	int cnt = 0;
-
-	for (int i = 0; i < SIZE_TEST; ++i)
-	{
-		image curr = test.getImage(i);
-
-		vector<float> test_input;
-		for (int i = 0; i < INPUT_SIZE; ++i)
-		{
-			test_input.push_back(curr.x[i]);
-		}
-
-		// 第一层
-		///////////////////////////////////
-		// linear compute
-		graph[0].SetX(test_input);
-		graph[0].Forward();
-		// activation: RELU
-		actvFirst.setInput(graph[0].GetY());
-		actvFirst.forward_compute();
-
-		// 第二层
-		/////////////////////////////////////
-		graph[1].SetX(actvFirst.getOutput());
-		graph[1].Forward();
-		actvSecond.setInput(graph[1].GetY());
-		actvSecond.forward_compute();
-
-		// 第三层
-		///////////////////////////////////////
-		graph[2].SetX(actvSecond.getOutput());
-		graph[2].Forward();
-		actvOut.setInput(graph[2].GetY());
-		actvOut.forward_compute();
-
-		vector<float> result = actvOut.getOutput();
-
-		int predict = 0;
-		float currMax = 0.0f;
-
-		// 得到predict
-		for (int k = 0; k < result.size(); ++k)
-		{
-			if (result[k] > currMax)
-			{
-				currMax = result[k];
-				predict = k;
-			}
-		}
-		if (predict == curr.y)
-		{
-			++correct;
-		}
-		++cnt;
-		if ((i + 1) % 100 == 0)
-		{
-			float correctPercentage = (float)correct / (i + 1);
-			correctPercentage *= 100.0f;
-			printf("	Correctness : %.2f %\r", correctPercentage);
-		}
-	}
-	float correctPercentage = (float)correct / (cnt + 1);
-	correctPercentage *= 100.0f;
-	printf("	Correctness : %.2f %\r", correctPercentage);
-}
-
+namespace fs = std::filesystem;
 int main()
 {
-	// 测试convlayer 线性卷积结果
-	//////////////////////////////////////
-
-	vector<float> convInput = {
-		1, 2, 3, 
-		4, 5, 6, 
-		7, 8, 9
-	};
-	vector<float> convFilter = {
-		1, 1, 1, 1,
-		2, 2, 2, 2,
-		3, 3, 3, 3
-	};
-	vector<float> loss = {
-	1, 1, 1, 1,
-	2, 2, 2, 2,
-	3, 3, 3, 3
-	};
-	convLayer testim2col(3, 3, 1, 2, 2, 1, 0);
-	testim2col.setX(convInput);
-	testim2col.im2col();
-	testim2col.print_Col();
-	testim2col.setFilters(convFilter);
-	//testim2col.mat_mul();
-	//testim2col.print_out();
-	testim2col.im2col_forward();
-	testim2col.print_out();
-	//dim temp = testim2col.getOutputDim();
-	testim2col.setLoss(loss);
-	testim2col.im2col_backward();
-	testim2col.printDfilters();
-	testim2col.printDcol();
-	testim2col.printDbiases();
-
-	//vector<float> y;
-	//y.resize(temp.height * temp.width * temp.channel * 4);
-
-	//im2col(convInput.data(), 1, 3, 3, 2, 2, 0, 0, 1, 1, 1, 1, y.data());
-
-	//vector<float> A = {
-	//	1, 2,
-	//	3, 4,
-	//	5, 6
-	//};
-
-	//vector<float> B = {
-	//	1, 4, 
-	//	2, 5, 
-	//	3, 6,
-	//};
-
-	//vector<float> C;
-	//C.resize(2 * 2);
-
-	//gemm(1, 0, 2, 2, 3, 1, A.data(), 2, B.data(), 2, 0, C.data(), 2);
-
-
-	//std::cout << "Test:" << std::endl;
-	//for (int row = 0; row < 2; ++row)
-	//{
-	//	for (int col = 0; col < 2; ++col)
-	//	{
-	//		std::cout << C[row * 2 + col] << " ";
-	//	}
-	//	std::cout << std::endl;
-	//}
-
 	// 数据处理
 	//////////////////////////////////////
 	std::cout << "收集训练集" << std::endl;
 	dataCollector train("./mnist_digit_train.csv");
 
-	train.collectData();
+	//train.collectData();
 
-	// 建立卷积网络
+	// 建立神经网络
 	// /////////////////////////////////
-	// 第一层	----	1 * 28 * 28 -> 3 * 12 * 12
-	convLayer first(28, 28, 1, 5, 5, 2, 0);
-	dim firstDim = first.getOutputDim();
-	actvLayer firstActv(firstDim.height * firstDim.width * firstDim.channel, Actv::RELU);
+	// 第一层conv1	----	1 * 28 * 28 -> 8 * 14 * 14
+	convLayer conv1_1(28, 28, 1, 3, 3, 2, 1, 8);
+	dim conv1_1Dim = conv1_1.getOutputDim();
 
-	// 第二层    ----	3 * 12 * 12 -> 3 * 4 * 4
-	convLayer second(firstDim.width, firstDim.height, firstDim.channel, 5, 5, 2, 0);
-	dim secondDim = second.getOutputDim();
-	actvLayer secondActv(secondDim.height * secondDim.width * secondDim.channel, Actv::RELU);
+	actvLayer conv1_1Actv(conv1_1Dim.height * conv1_1Dim.width * conv1_1Dim.channel, Actv::RELU);
 
-	// 第三层	----	3 * 16 -> 10	SIGMOID全连接输出层
-	fcLayer outLayer(secondDim.height * secondDim.width * secondDim.channel, 10, Actv::SIGMOID);
+	//convLayer conv1_2(conv1_1Dim.width, conv1_1Dim.height, conv1_1Dim.channel, 3, 3, 1, 1, 8);
+	//dim conv1_2Dim = conv1_2.getOutputDim();
+
+	//actvLayer conv1_2Actv(conv1_2Dim.height * conv1_2Dim.width * conv1_2Dim.channel, Actv::RELU);
+
+	// 第二层conv2    ----	8 * 14 * 14 -> 16 * 7 * 7
+	convLayer conv2_1(conv1_1Dim.width, conv1_1Dim.height, conv1_1Dim.channel, 3, 3, 2, 1, 16);
+	dim conv2_1Dim = conv2_1.getOutputDim();
+
+	actvLayer conv2_1Actv(conv2_1Dim.height * conv2_1Dim.width * conv2_1Dim.channel, Actv::RELU);
+
+	//convLayer conv2_2(conv2_1Dim.width, conv2_1Dim.height, conv2_1Dim.channel, 3, 3, 1, 1, 16);
+	//dim conv2_2Dim = conv2_2.getOutputDim();
+
+	//actvLayer conv2_2Actv(conv2_2Dim.height * conv2_2Dim.width * conv2_2Dim.channel, Actv::RELU);
+
+	// 第三层fc1    ----	16 * 7 * 7 -> 100    全连接层
+	fcLayer fc1(conv2_1Dim.height * conv2_1Dim.width * conv2_1Dim.channel, 100);
+
+	actvLayer fc1Actv(100, Actv::RELU);
+
+	//// 第四层fc2	   ---- 512 -> 64
+	//fcLayer fc2(512, 64);
+
+	//actvLayer fc2Actv(64, Actv::RELU);
+
+	// 第五层out层  ---- 100 -> 10	Sigmoid全连接输出层
+	fcLayer outLayer(100, 10);
+
 	actvLayer outActv(10, Actv::SIGMOID);
+	//softmaxLayer outSoftmax(10);
 
-	// random engine
-	std::random_device rd;
-	std::default_random_engine eng(rd());
-	std::uniform_int_distribution<int> u(0, SIZE_TRAIN - 1);
-
-	list<float> lossList;
-	for (size_t itr = 0; itr < 10000; itr++)
+	vector<layer*> Net = { 
+		&conv1_1, &conv1_1Actv, 
+		//&conv1_2, &conv1_2Actv, 
+		&conv2_1, &conv2_1Actv, 
+		//&conv2_2, &conv2_2Actv,
+		&fc1, &fc1Actv,
+		//&fc2, &fc2Actv,
+		&outLayer, &outActv
+	};
+	Graph model(batch_size, iterations, Net);
+	model.setLearningRate(0.001f, 0.2f, 0.7f);
+	model.Run();
+	model.Validation();
+	while (1)
 	{
-		static float ecof = 0.00001f;
-		ecof += 0.002;
-		ecof = ecof > 1 ? 1 : ecof;
-
-		vector<image> samples;
-		for (int idx = 0; idx < batch_size; ++idx)
-		{
-			int row = u(eng);
-			image curr = train.getImage(row);
-			vector<float> input;
-			for (int i = 0; i < INPUT_SIZE; ++i)
-			{
-				input.push_back(curr.x[i]);
-			}
-
-			// 前向传播
-			///////////////////////////////////////////
-			// 
-			// 第一层
-			first.setX(input);
-			first.im2col_forward();
-			firstActv.setInput(first.getY());
-			firstActv.forward_compute();
-
-			// 第二层
-			second.setX(firstActv.getOutput());
-			second.im2col_forward();
-			secondActv.setInput(second.getY());
-			secondActv.forward_compute();
-		
-			// 输出层
-			outLayer.SetX(secondActv.getOutput());
-			outLayer.Forward();
-			outActv.setInput(outLayer.GetY());
-			outActv.forward_compute();
-
-			// 输出
-			vector<float> output = outActv.getOutput();
-			int label[10] = { 0 };
-			label[curr.y] = 1;
-			vector<float> loss;
-
-			float avgLoss = 0.0f;
-			// 差值loss计算
-			for (int i = 0; i < output.size(); ++i)
-			{
-				if (label[i] == 1) {
-					loss.push_back((label[i] - output[i]));
-				}
-				else {
-
-					loss.push_back((label[i] - output[i]) * ecof);
-				}
-
-
-				if (label[i] == 1) { avgLoss = abs(label[i] - output[i]); }
-			}
-
-
-			// 反向传播
-			///////////////////////////////////////////////////
-			outActv.setDactv(loss);
-			outActv.backward_compute();
-			outLayer.SetDY(outActv.getDactv());
-			outLayer.Backward();
-
-			secondActv.setDactv(outLayer.GetDX());
-			secondActv.backward_compute();
-			second.setLoss(secondActv.getDactv());
-			second.im2col_backward();
-
-			firstActv.setDactv(second.getDCol());
-			firstActv.backward_compute();
-			first.setLoss(firstActv.getDactv());
-			first.im2col_backward();
-
-			{
-				lossList.push_back(avgLoss);
-				if (lossList.size() > 100) { lossList.pop_front(); }
-				float tloss = 0;
-				for (float l : lossList) { tloss += l; }
-				tloss /= lossList.size();
-				printf("Iterations %d, avgloss:%f\r", itr, tloss);
-				::Sleep(1);
-			}
-		}
-
-		first.im2col_update();
-		second.im2col_update();
-		outLayer.Update();
+		model.Test();
 	}
-
-	// 测试
-////////////////////////////////////////////
-	std::cout << "Run test!" << std::endl;
-	std::cout << "收集测试集" << std::endl;
-	dataCollector test("./mnist_digit_test.csv");
-	test.collectData();
-	int correct = 0;
-	int cnt = 0;
-
-	for (int i = 0; i < SIZE_TEST; ++i)
-	{
-		image curr = test.getImage(i);
-
-		vector<float> test_input;
-		for (int i = 0; i < INPUT_SIZE; ++i)
-		{
-			test_input.push_back(curr.x[i]);
-		}
-
-		// 前向传播
-		///////////////////////////////////////////
-		// 
-		// 第一层
-		first.setX(test_input);
-		first.im2col_forward();
-		firstActv.setInput(first.getY());
-		firstActv.forward_compute();
-
-		// 第二层
-		second.setX(firstActv.getOutput());
-		second.im2col_forward();
-		secondActv.setInput(second.getY());
-		secondActv.forward_compute();
-
-		// 输出层
-		outLayer.SetX(secondActv.getOutput());
-		outLayer.Forward();
-		outActv.setInput(outLayer.GetY());
-		outActv.forward_compute();
-
-		vector<float> result = outActv.getOutput();
-
-		int predict = 0;
-		float currMax = 0.0f;
-
-		// 得到predict
-		for (int k = 0; k < result.size(); ++k)
-		{
-			if (result[k] > currMax)
-			{
-				currMax = result[k];
-				predict = k;
-			}
-		}
-		if (predict == curr.y)
-		{
-			++correct;
-		}
-		++cnt;
-		if ((i + 1) % 100 == 0)
-		{
-			float correctPercentage = (float)correct / (i + 1);
-			correctPercentage *= 100.0f;
-			printf("	Correctness : %.2f %\r", correctPercentage);
-		}
-	}
-	float correctPercentage = (float)correct / (cnt + 1);
-	correctPercentage *= 100.0f;
-	printf("	Correctness : %.2f %\r", correctPercentage);
-
 }
+
+
+#endif // !

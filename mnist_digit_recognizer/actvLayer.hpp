@@ -1,7 +1,13 @@
 #ifndef _actv_function_hpp__
 #define _actv_function_hpp__
 
-class actvLayer
+#include "layer.hpp"
+
+/******************************
+* 激活函数层				      * 
+******************************/
+
+class actvLayer: public layer
 {
 public:
 	actvLayer() {};
@@ -10,32 +16,13 @@ public:
 		this->size = size;
 		this->mode = mode;
 
-		neurals.resize(this->size);
-		output.resize(this->size);
-		dactv.resize(this->size);
+		x.resize(this->size);
+		y.resize(this->size);
+		dy.resize(this->size);
+		dx.resize(this->size);
 	}
 
-	void setInput(vector<float> input)
-	{
-		this->neurals = input;
-	}
-
-	void setDactv(vector<float> loss)
-	{
-		this->dactv = loss;
-	}
-
-	vector<float> getOutput()
-	{
-		return output;
-	}
-
-	vector<float> getDactv()
-	{
-		return dactv;
-	}
-
-	void forward_compute()
+	void Forward() override
 	{
 		switch (mode)
 		{
@@ -43,7 +30,7 @@ public:
 		{
 			for (int i = 0; i < size; ++i)
 			{
-				output[i] = relu(neurals[i]);
+				y[i] = relu(x[i]);
 			}
 		}
 			break;
@@ -51,18 +38,16 @@ public:
 		{
 			for (int i = 0; i < size; ++i)
 			{
-				output[i] = sigmoid(neurals[i]);
+				y[i] = sigmoid(x[i]);
 			}
 		}
-			break;
-		case Actv::SOFTMAX:
 			break;
 		default:
 			break;
 		}
 	}
 
-	void backward_compute()
+	void Backward() override
 	{
 		switch (mode)
 		{
@@ -70,7 +55,7 @@ public:
 		{
 			for (int i = 0; i < size; ++i)
 			{
-				dactv[i] = relu_gd(output[i]) * dactv[i];
+				dx[i] = relu_gd(y[i]) * dy[i];
 			}
 		}
 			break;
@@ -78,11 +63,9 @@ public:
 		{
 			for (int i = 0; i < size; ++i)
 			{
-				dactv[i] = sigmoid_gd(output[i]) * dactv[i];
+				dx[i] = sigmoid_gd(y[i]) * dy[i];
 			}
 		}
-			break;
-		case Actv::SOFTMAX:
 			break;
 		default:
 			break;
@@ -104,15 +87,13 @@ private:
 		if (x > 0) { return x; }
 		else { return 0.0f; }
 	}
-	float relu_gd(float y /*严格来说，应该输入x*/)
+	float relu_gd(float y)
 	{
 		if (y > 0) { return 1.0f; }
 		else { return 0.0f; }
 	}
+
 private:
-	vector<float> neurals;
-	vector<float> output;
-	vector<float> dactv;
 	int size;
 	Actv mode;
 };

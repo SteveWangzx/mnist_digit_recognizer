@@ -1,24 +1,24 @@
 #ifndef _full_connected_layer__
 #define _full_connected_layer__
 
+#include "layer.hpp"
+
 enum class Actv
 {
 	RELU,
 	SIGMOID,
-	SOFTMAX
 };
 
 using std::vector;
 
-class fcLayer
+class fcLayer: public layer
 {
 public:
 	fcLayer() {};
-	fcLayer(int inputSize, int outputSize, Actv actv)
+	fcLayer(int inputSize, int outputSize)
 	{
 		this->sizeInput = inputSize;
 		this->sizeNeurals = outputSize;
-		this->actvType = actv;
 
 		// 分配内存
 		x.resize(this->sizeInput);
@@ -43,7 +43,7 @@ public:
 			{
 				//权重初始化为随机数[-0.5, 0.5]
 				w[n * this->sizeInput + i] = w_neu(eng_neu);
-				//权重梯度初始化为随机数[-0.1, 0.1]
+				//权重梯度初始化为0
 				dw[n * this->sizeInput + i] = 0.0f;
 			}
 
@@ -54,28 +54,9 @@ public:
 		}
 	}
 
-	void SetX(vector<float> x)
-	{
-		this->x = x;
-	}
-	/// @brief 获取输出 
-	vector<float> GetY()
-	{
-		return y;
-	}
 	vector<float> GetW()
 	{
 		return w;
-	}
-	/// @brief 设置梯度输入 
-	void SetDY(vector<float> dy)
-	{
-		this->dy = dy;
-	}
-	/// @brief 获取梯度输出 
-	vector<float> GetDX()
-	{
-		return dx;
 	}
 
 	vector<float> GetBias()
@@ -84,7 +65,7 @@ public:
 	}
 
 	/// @brief 向前传播
-	void Forward()
+	void Forward() override
 	{
 		//y = w * x + b
 		for (int n = 0; n < sizeNeurals; ++n)
@@ -118,7 +99,7 @@ public:
 	}
 
 	/// @brief 向后传播
-	void Backward()
+	void Backward() override
 	{
 		//反激活
 		//switch (actvType)
@@ -166,20 +147,20 @@ public:
 	}
 
 	/// @brief 更新参数
-	void Update()
+	void Update(float staticLR) override
 	{
-		static const float LR = 0.001f; //学习率
+		//static const float LR = 0.001f; //学习率
 		static const float Momenteum = 0.9f; //动量(不是必须的)
 
 		//更新权重
 		for (int idx = 0; idx < sizeInput * sizeNeurals; ++idx)
 		{
-			w[idx] += dw[idx] * LR;
+			w[idx] += dw[idx] * staticLR;
 		}
 		//更新偏置
 		for (int idx = 0; idx < sizeNeurals; ++idx)
 		{
-			b[idx] += db[idx] * LR;
+			b[idx] += db[idx] * staticLR;
 		}
 
 
@@ -219,17 +200,17 @@ private:
 	int sizeNeurals;				// 输出size(神经元个数)
 	Actv actvType;					// 激活类型
 
-	// Foward Parameters
-	vector<float> x;				// 输入vector - size = sizeInput
-	vector<float> y;				// 输出vector - size = sizeNeurals
-	vector<float> w;				// 权重vector - size = sizeInput * sizeNeurals
-	vector<float> b;				// 偏置vector - size = sizeNeurals
+	//// Foward Parameters
+	//vector<float> x;				// 输入vector - size = sizeInput
+	//vector<float> y;				// 输出vector - size = sizeNeurals
+	//vector<float> w;				// 权重vector - size = sizeInput * sizeNeurals
+	//vector<float> b;				// 偏置vector - size = sizeNeurals
 
-	// Backward Parameters ---- 偏导
-	vector<float> dx;				
-	vector<float> dw;
-	vector<float> db;
-	vector<float> dy;
+	//// Backward Parameters ---- 偏导
+	//vector<float> dx;				
+	//vector<float> dw;
+	//vector<float> db;
+	//vector<float> dy;
 };
 
 #endif // !_full_connected_layer__
