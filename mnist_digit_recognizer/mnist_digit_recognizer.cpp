@@ -21,15 +21,15 @@ using std::list;
 namespace fs = std::filesystem;
 
 /// 头文件
-#include "Define.hpp"
-#include "dataCollector.hpp"
-#include "gemm.hpp"
-#include "layer.hpp"
-#include "fcLayer.hpp"
-#include "actvLayer.hpp"
-#include "convLayer.hpp"
-#include "softmaxLayer.hpp"
-#include "Graph.hpp"
+#include "public/Define.hpp"
+#include "dataCollector/dataCollector.hpp"
+#include "compute/gemm.hpp"
+#include "layers/layer.hpp"
+#include "layers/fcLayer.hpp"
+#include "layers/actvLayer.hpp"
+#include "layers/convLayer.hpp"
+#include "layers/softmaxLayer.hpp"
+#include "CNNGraph/Graph.hpp"
 
 int main()
 {

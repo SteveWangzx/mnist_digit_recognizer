@@ -13,39 +13,54 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="public">
+      <UniqueIdentifier>{ef1b0a03-8ec0-4069-8f78-9769de7e898a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="layers">
+      <UniqueIdentifier>{3634c765-e468-4160-aebb-032bad50855c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="dataCollector">
+      <UniqueIdentifier>{9564af0e-f124-45e7-b969-9be15f50b331}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CNNGraph">
+      <UniqueIdentifier>{aeff2e01-6e67-4fae-9726-82f9cb1f90e2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="compute">
+      <UniqueIdentifier>{346ad0be-4816-4535-b9f2-7a595bbe4510}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="mnist_digit_recognizer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Define.hpp">
-      <Filter>头文件</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="dataCollector.hpp">
-      <Filter>头文件</Filter>
+    <ClInclude Include="layers\actvLayer.hpp">
+      <Filter>layers</Filter>
     </ClInclude>
-    <ClInclude Include="fcLayer.hpp">
-      <Filter>头文件</Filter>
+    <ClInclude Include="layers\convLayer.hpp">
+      <Filter>layers</Filter>
     </ClInclude>
-    <ClInclude Include="actvLayer.hpp">
-      <Filter>头文件</Filter>
+    <ClInclude Include="dataCollector\dataCollector.hpp">
+      <Filter>dataCollector</Filter>
     </ClInclude>
-    <ClInclude Include="convLayer.hpp">
-      <Filter>头文件</Filter>
+    <ClInclude Include="public\Define.hpp">
+      <Filter>public</Filter>
     </ClInclude>
-    <ClInclude Include="gemm.hpp">
-      <Filter>头文件</Filter>
+    <ClInclude Include="layers\fcLayer.hpp">
+      <Filter>layers</Filter>
     </ClInclude>
-    <ClInclude Include="softmaxLayer.hpp">
-      <Filter>头文件</Filter>
+    <ClInclude Include="compute\gemm.hpp">
+      <Filter>compute</Filter>
     </ClInclude>
-    <ClInclude Include="layer.hpp">
-      <Filter>头文件</Filter>
+    <ClInclude Include="CNNGraph\Graph.hpp">
+      <Filter>CNNGraph</Filter>
     </ClInclude>
-    <ClInclude Include="Graph.hpp">
-      <Filter>头文件</Filter>
+    <ClInclude Include="layers\layer.hpp">
+      <Filter>layers</Filter>
+    </ClInclude>
+    <ClInclude Include="layers\softmaxLayer.hpp">
+      <Filter>layers</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

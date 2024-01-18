@@ -1,6 +1,8 @@
 #ifndef _define_hpp__
 #define _define_hpp__
 
+/* 公用变量头文件 */
+
 // 数据集size
 const int SIZE_TRAIN = 33600;
 const int SIZE_TEST = 8400;

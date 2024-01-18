@@ -140,18 +140,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Define.hpp" />
     <ClCompile Include="mnist_digit_recognizer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="actvLayer.hpp" />
-    <ClInclude Include="convLayer.hpp" />
-    <ClInclude Include="dataCollector.hpp" />
-    <ClInclude Include="fcLayer.hpp" />
-    <ClInclude Include="gemm.hpp" />
-    <ClInclude Include="Graph.hpp" />
-    <ClInclude Include="layer.hpp" />
-    <ClInclude Include="softmaxLayer.hpp" />
+    <ClInclude Include="CNNGraph\Graph.hpp" />
+    <ClInclude Include="compute\gemm.hpp" />
+    <ClInclude Include="dataCollector\dataCollector.hpp" />
+    <ClInclude Include="layers\actvLayer.hpp" />
+    <ClInclude Include="layers\convLayer.hpp" />
+    <ClInclude Include="layers\fcLayer.hpp" />
+    <ClInclude Include="layers\layer.hpp" />
+    <ClInclude Include="layers\softmaxLayer.hpp" />
+    <ClInclude Include="public\Define.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
