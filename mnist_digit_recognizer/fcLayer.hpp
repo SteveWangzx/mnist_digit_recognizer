@@ -1,16 +1,6 @@
 #ifndef _full_connected_layer__
 #define _full_connected_layer__
 
-#include "layer.hpp"
-
-enum class Actv
-{
-	RELU,
-	SIGMOID,
-};
-
-using std::vector;
-
 class fcLayer: public layer
 {
 public:

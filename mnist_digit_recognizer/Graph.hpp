@@ -1,7 +1,6 @@
 #ifndef _GRAPH_hpp_
 #define _GRAPH_hpp_
 
-#include "layer.hpp"
 
 // random engine
 std::random_device graphRandomDevice;
@@ -16,7 +15,6 @@ public:
 		// code for building dataset
 		samples.addPath("./mnist_digit_train.csv");
 		samples.collectData();
-		samples.split_train_test(0.2);
 		input.resize(INPUT_SIZE);
 		output.resize(10);
 		loss.resize(10);
@@ -26,7 +24,6 @@ public:
 		// code for building dataset
 		samples.addPath("./mnist_digit_train.csv");
 		samples.collectData();
-		samples.split_train_test(0.2);
 		input.resize(INPUT_SIZE);
 		output.resize(10);
 		loss.resize(10);
@@ -51,7 +48,7 @@ public:
 	void onSetInput()
 	{
 		// 随机抽取训练样本
-		std::uniform_int_distribution<int> uni(0, samples.trainSize - 1);
+		std::uniform_int_distribution<int> uni(0, samples.sampleSize - 1);
 		int sampleID = uni(engine);
 		currSample = samples.getImage(sampleID);			
 		for (int i = 0; i < INPUT_SIZE; ++i)
@@ -128,7 +125,7 @@ public:
 				}
 				tloss /= losslist.size();
 				float curr_correct = (float)hit / correctList.size();
-				printf("Training...<%d|%d> LR: %f ecof: %f Loss: %f Correctness: %f \r", 
+				printf("Training...<%d|%d> LR: %f coef: %f Loss: %f Correctness: %f \r", 
 					currItr, ITERATIONS, LearningRate, ecof, tloss, curr_correct);
 			}
 		}
@@ -138,13 +135,16 @@ public:
 	{
 		// 遍历测试集
 		// 训练集：0 - (trainSize-1)     测试集：trainSize - sampleSize
-		printf("\n");
+		printf("Validation...\n");
+		printf("收集测试集...");
+		validations.addPath("./mnist_digit_test.csv");
+		validations.collectData();
 		int total = 0;
 		int correct = 0;
-		for (int i = samples.trainSize; i < samples.sampleSize; i++)
+		for (int i = 0; i < validations.sampleSize; i++)
 		{
 			++total;
-			image currVal = samples.getImage(i);
+			image currVal = validations.getImage(i);
 			for (int j = 0; j < INPUT_SIZE; ++j)
 			{
 				input[j] = currVal.x[j];
@@ -166,7 +166,7 @@ public:
 			}
 			{
 				float accuracy = (float)correct / total;
-				printf("Run Validation Set: <%d|%d>  Accuracy: %f \r", total, samples.testSize, accuracy);
+				printf("Run Validation Set: <%d|%d>  Accuracy: %f \r", total, validations.sampleSize, accuracy);
 			}
 		}
 	}
@@ -275,6 +275,7 @@ private:
 	vector<layer*> graph;
 	int graphSize = 0;
 	dataCollector samples;
+	dataCollector validations;
 
 };
 

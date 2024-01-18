@@ -1,7 +1,6 @@
 #ifndef _softmax_layer__
 #define _softmax_layer__
 
-#include "layer.hpp"
 
 class softmaxLayer: public layer
 {

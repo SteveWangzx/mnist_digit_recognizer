@@ -1,11 +1,11 @@
 #ifndef _actv_function_hpp__
 #define _actv_function_hpp__
 
-#include "layer.hpp"
 
-/******************************
-* 激活函数层				      * 
-******************************/
+/***********************************
+* 激活函数层                         *
+* 目前包括 ReLU Sigmoid两种激活模式   * 
+************************************/
 
 class actvLayer: public layer
 {

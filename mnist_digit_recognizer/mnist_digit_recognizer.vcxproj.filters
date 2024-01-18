@@ -18,6 +18,9 @@
     <ClCompile Include="mnist_digit_recognizer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Define.hpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dataCollector.hpp">

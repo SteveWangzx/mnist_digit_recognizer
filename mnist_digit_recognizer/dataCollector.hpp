@@ -1,15 +1,11 @@
 #ifndef _data_collector_hpp__
 #define _data_coolector_hpp__
 
-const int WIDTH = 28;
-const int HEIGHT = 28;
-const int INPUT_SIZE = 784;		// width * height
-
-struct image
-{
-	float x[INPUT_SIZE];
-	int y;
-};
+/*  
+* 数据收集类
+* 读取MNIST csv文件
+* 生成image序列
+*/
 
 class dataCollector
 {
@@ -41,9 +37,7 @@ private:
 	std::vector<image> samples;
 };
 
-// void dataCollector::collectData()
-// @brief: 读取csv文件
-// @param: 
+// @brief: 收集数据读取csv文件
 void dataCollector::collectData()
 {
 	std::ifstream csvFile(path, std::ios::in);
@@ -87,19 +81,20 @@ void dataCollector::collectData()
 	csvFile.close();
 }
 
+/* 处理单行数据 */
 void dataCollector::dataHandler(std::vector<std::string>& words)
 {
 	image temp;
 	int idx = 0;
 	
-	// 输入y
+	// 输入标签y
 	temp.y = std::stoi(words[idx]);
 	++idx;
 
 	// 输入x
 	for (int i = 0; i < INPUT_SIZE; ++i)
 	{
-		/// 归一化处理 [0, 1]
+		// 归一化处理 [0, 1]
 		float norm_x = std::stoi(words[idx]) / 255.0f;
 		temp.x[i] = norm_x;
 		++idx;
@@ -108,6 +103,7 @@ void dataCollector::dataHandler(std::vector<std::string>& words)
 }
 
 // Select certain row of data to display 
+/* 打印指定图片 */
 void dataCollector::peak(int row)
 {
 	std::cout << "第" << row << "项" << "图片展示: " << std::endl;
@@ -130,7 +126,7 @@ void dataCollector::split_train_test(float ratio)
 }
 
 
-// return certain image
+/* 返回指定图片 */
 image dataCollector::getImage(int row)
 {
 	return samples[row];

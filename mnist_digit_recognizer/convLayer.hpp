@@ -1,17 +1,11 @@
 ﻿#ifndef _conv_layer__
 #define _conv_layer__
 
-#include "gemm.hpp"
-#include "layer.hpp"
 
-extern float lr;
-
-struct dim
-{
-	int width = 0;
-	int height = 0;
-	int channel = 1;
-};
+/***********************************
+* 卷积层 Convolutional Layer        *
+* 使用GEMM im2col进行卷积加速优化     *
+************************************/
 
 class convLayer: public layer
 {
@@ -19,14 +13,14 @@ public:
 	convLayer()  = default;
 	convLayer(int inputWidth, int inputHeight, int inputChannel,int filterWidth, int filterHeight, int stride, int padding, int filterNum)
 	{
-		this->inputWidth = inputWidth;
-		this->inputHeight = inputHeight;
-		this->inputChannel = inputChannel;
-		this->filterHeight = filterHeight;
-		this->filterWidth = filterWidth;
-		this->stride = stride;
-		this->padding = padding;
-		this->filterNum = filterNum;
+		this->inputWidth = inputWidth;				// 输入width
+		this->inputHeight = inputHeight;			// 输入height
+		this->inputChannel = inputChannel;			// 输入通道
+		this->filterHeight = filterHeight;			// 卷积核height
+		this->filterWidth = filterWidth;			// 卷积核width
+		this->stride = stride;						// 步长
+		this->padding = padding;					// 周围填充
+		this->filterNum = filterNum;				// 卷积核数量 = 输出通道数
 
 		// 计算输出矩阵大小
 		// padding - 0
@@ -37,33 +31,33 @@ public:
 		this->outputHeight = (this->inputHeight - this->filterHeight + 2 * this->padding) / 
 			this->stride + 1;
 
-		// im2col 内存分配
+		// 内存分配
 		//////////////////////////////////////////////////////////////
 		// 卷积核通道数与输出通道数一致
-		this->kernelSize = this->filterHeight * this->filterWidth * this->inputChannel;
-		this->ySize = this->outputHeight * this->outputWidth;
-		x.resize(this->inputWidth * this->inputHeight * this->inputChannel);		// 输入矩阵 
+		this->kernelSize = this->filterHeight * this->filterWidth * this->inputChannel;		// 卷积核size
+		this->ySize = this->outputHeight * this->outputWidth;								// 输出矩阵size
+		x.resize(this->inputWidth * this->inputHeight * this->inputChannel);				// 输入矩阵 x
 		// Col
-		col.resize(kernelSize * ySize);												// col
-		dcol.resize(kernelSize * ySize);											// dcol
-		dx.resize(this->inputWidth * this->inputHeight * this->inputChannel);		// dx
+		col.resize(kernelSize * ySize);														// 行列式 col 
+		dcol.resize(kernelSize * ySize);													// 行列式偏导 dcol
+		dx.resize(this->inputWidth * this->inputHeight * this->inputChannel);				// dx
 		// 权重
-		w.resize(this->filterNum * kernelSize);								// w
-		dw.resize(this->filterNum * kernelSize);								// dw
+		w.resize(this->filterNum * kernelSize);												// w
+		dw.resize(this->filterNum * kernelSize);											// dw
 		// 偏置
-		b.resize(filterNum);													// b
-		db.resize(filterNum);													// db
+		b.resize(filterNum);																// b
+		db.resize(filterNum);																// db
 		// 输出矩阵 - 包括多个feature map
-		y.resize(filterNum * ySize);										// y
-		dy.resize(filterNum * ySize);										// dy
+		y.resize(filterNum * ySize);														// y
+		dy.resize(filterNum * ySize);														// dy
 
-		// 初始化
+		// 随机初始化
 		std::random_device rd_conv;
 		std::default_random_engine eng_conv(rd_conv());
 		std::uniform_real_distribution<float> w_conv(-0.5f, 0.5f);
 		std::uniform_real_distribution<float> b_conv(-0.1f, 0.1f);
 		
-		// im2col初始化
+		// 权重偏置初始化
 		for (int i = 0; i < filterNum; ++i)
 		{
 			for (int j = 0; j < kernelSize; ++j)
@@ -77,6 +71,7 @@ public:
 		}
 	}
 
+	/* 输出y维度 */
 	dim getOutputDim()
 	{
 		dim temp;
@@ -86,17 +81,17 @@ public:
 		return temp;
 	}
 
-	// im2col算法： 加入通道数
+	/* x转col */
+	// 输入:x
+	// 输出:col
 	void im2col()
 	{
-		// 输入:x
-		// 输出:col
-		//////////////////////////////
 		gemm_im2col(x.data(), this->inputChannel, this->inputHeight, this->inputWidth,
 			this->filterHeight, this->filterWidth, this->padding, this->padding, this->stride, this->stride, 1, 1, this->col.data()
 		);
 	}
 
+	// 测试
 	void print_out()
 	{
 		std::cout << "Test mat mul:" << std::endl;
@@ -116,7 +111,7 @@ public:
 		// 转化
 		im2col();
 
-		// 矩阵相乘 w * x
+		// 矩阵相乘 w * x = y
 		// 矩阵A: 卷积核权重 filters - A.shape = M * K
 		// 矩阵B: im2col矩阵 col - B.shape = K * N 
 		// 矩阵C: 输出矩阵 outputMat - C.shape = M * N
@@ -124,6 +119,7 @@ public:
 			col.data(), ySize, 0, y.data(), ySize);
 		
 		// 加入偏置
+		// y = y + b
 		for (size_t outRow = 0; outRow < filterNum; outRow++)
 		{
 			for (size_t outCol = 0; outCol < ySize; outCol++)
@@ -136,17 +132,14 @@ public:
 	// im2col反向传播
 	void Backward() override
 	{
-		// loss 转col
-		
-
-		// 计算权重梯度 (y = w * x + b  w求偏导: dw = x)
+		// 计算权重梯度dw (y = w * x + b  w求偏导: dw = x)
 		// dw = dy * col(T)
 		// dw = filterNum * kernelSize
 		// dy = filterNum * ysize
 		// col = kernelSize * ySize	---- col^T = ySize * kernelSize;
 		gemm(0, 1, filterNum, kernelSize, ySize, 1, dy.data(), ySize, col.data(), ySize, 0, dw.data(), kernelSize);
 
-		// 计算偏置
+		// 计算偏置db
 		// db = dy * [1, 1, 1.....]
 		// [1, 1, 1, ......] = filterNum * 1
 		// 遍历db
@@ -159,6 +152,7 @@ public:
 			}
 		}
 		check_number(db.data(), db.size());
+
 		// 计算dx
 		// dx = w^T * dy
 		// w = filterNum * kernelSize
@@ -166,10 +160,11 @@ public:
 		// dx = kernelSize * ySize
 		gemm(1, 0, kernelSize, ySize, filterNum, 1, w.data(), kernelSize, dy.data(), ySize, 0, dcol.data(), ySize);
 		check_number(dcol.data(), dcol.size());
+
 		// col2im
-		// dcol转为im形式
+		// dcol转为dx形式
 		// dcol = kernelSize * ySize
-		// im = oH * ow * channel
+		// im = oh * ow * channel
 		for (float& f : dx)
 		{
 			f = 0;
@@ -180,6 +175,7 @@ public:
 		check_number(dx.data(), dx.size());
 	}
 
+	// 检查NaN或INF错误
 	void check_number(float* ptr, size_t length)
 	{
 		for (size_t i = 0; i < length; i++)
@@ -191,10 +187,9 @@ public:
 		}
 	}
 
+	/* 更新参数 */
 	void Update(float staticLR) override
 	{
-		// 更新参数
-		//static const float LR = 0.001f; //学习率
 		static const float Momenteum = 0.9f; //动量(不是必须的)
 
 		// 更新权重
@@ -213,7 +208,6 @@ public:
 		}
 
 		// 动量策略
-		/////////////////////////////////////
 		for (int row = 0; row < filterNum; row++)
 		{
 			for (int col = 0; col < kernelSize; col++)
@@ -291,7 +285,7 @@ public:
 	//////////////////////////////////////////////////
 	/// </!!!Test for im2col process>
 
-	// functions for im2col backward
+	// functions for testing im2col backward process
 	/////////////////////////////////////////////////////
 	vector<float> getDCol()
 	{

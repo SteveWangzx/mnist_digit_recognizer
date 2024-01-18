@@ -3,7 +3,6 @@
 
 
 /// 库
-#include "nvx.h"
 #include <iostream>
 #include <string>
 #include <windows.h>
@@ -17,26 +16,21 @@
 #include <random>
 #include <filesystem>
 
+using std::vector;
+using std::list;
+namespace fs = std::filesystem;
+
 /// 头文件
+#include "Define.hpp"
 #include "dataCollector.hpp"
+#include "gemm.hpp"
+#include "layer.hpp"
 #include "fcLayer.hpp"
 #include "actvLayer.hpp"
 #include "convLayer.hpp"
-#include "gemm.hpp"
 #include "softmaxLayer.hpp"
-#include "layer.hpp"
 #include "Graph.hpp"
 
-const int SIZE_TRAIN = 33600;
-const int SIZE_TEST = 8400;
-// training parameters
-const int batch_size = 16;
-const int iterations = 40000;
-
-using std::vector;
-using std::list;
-
-namespace fs = std::filesystem;
 int main()
 {
 	// 数据处理
@@ -60,7 +54,7 @@ int main()
 	//actvLayer conv1_2Actv(conv1_2Dim.height * conv1_2Dim.width * conv1_2Dim.channel, Actv::RELU);
 
 	// 第二层conv2    ----	8 * 14 * 14 -> 16 * 7 * 7
-	convLayer conv2_1(conv1_1Dim.width, conv1_1Dim.height, conv1_1Dim.channel, 3, 3, 2, 1, 16);
+	convLayer conv2_1(conv1_1Dim.width, conv1_1Dim.height, conv1_1Dim.channel, 3, 3, 2, 1, 32);
 	dim conv2_1Dim = conv2_1.getOutputDim();
 
 	actvLayer conv2_1Actv(conv2_1Dim.height * conv2_1Dim.width * conv2_1Dim.channel, Actv::RELU);
@@ -70,7 +64,7 @@ int main()
 
 	//actvLayer conv2_2Actv(conv2_2Dim.height * conv2_2Dim.width * conv2_2Dim.channel, Actv::RELU);
 
-	// 第三层fc1    ----	16 * 7 * 7 -> 100    全连接层
+	// 第三层fc1    ----	32 * 7 * 7 -> 100    全连接层
 	fcLayer fc1(conv2_1Dim.height * conv2_1Dim.width * conv2_1Dim.channel, 100);
 
 	actvLayer fc1Actv(100, Actv::RELU);
@@ -96,7 +90,7 @@ int main()
 		&outLayer, &outActv
 	};
 	Graph model(batch_size, iterations, Net);
-	model.setLearningRate(0.001f, 0.2f, 0.7f);
+	model.setLearningRate(0.001f, 0.2f, 0.8f);
 	model.Run();
 	model.Validation();
 	while (1)
